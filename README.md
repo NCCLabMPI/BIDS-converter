@@ -8,7 +8,7 @@ we collect in our lab, which encompasses behavioral data, MEG, EEG, iEEG and fMR
 are as of yet no finalized BIDS standard for that data.
 
 ## Install:
-- Option 1: Go to https://github.com/NCCLabMPI/BIDS-converter and download the data
+- Option 1: Go to https://github.com/NCCLabMPI/BIDS-converter and download the code
 - Option 2: Install the repository as a package:
 ```
 conda install git
@@ -124,7 +124,7 @@ create_beh_events_sidecar(evts_files, task_descriptions, logs_descriptions,
 # 3. Create the participants.tsv:
 participants_tsv = create_participants_tsv(bids_root, evts_files, verbose=verbose, overwrite=overwrite)
 
-# 4. Create the participants.tsv:
+# 4. Create the participants.json:
 create_participants_json(bids_root, evts_files, verbose=verbose, overwrite=overwrite)
 
 # 5. Create the dataset_description.json:
