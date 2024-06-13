@@ -1,6 +1,6 @@
+import os
 import json
 from pathlib import Path
-import os as os
 import pandas as pd
 import numpy as np
 
@@ -33,44 +33,6 @@ def walk_bids_root(root_dir, extensions=None):
                 files_infos.append(bids_path)
 
     return files_infos
-
-
-def create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_description,
-                              verbose=True, overwrite=False):
-    """
-    This function creates side car files for the behavioral events tsv files according to the BIDS conventions.
-    :param beh_events_tsvs: (list of path) List of all events files found within the bids directory
-    :param task_description: (dict) contains the description of each task found within this data set
-    :param events_col_description: (dict) contains the metadata for each column in the log files associated with each
-    task in this data set
-    :param verbose: (boolean)
-    :param overwrite:
-    :return: beh_events_tsvs: the list
-    """
-    # Loop through each file to save the corresponding json sidecar:
-    for f in beh_events_tsvs:
-        # Get the task of the current file
-        task = f["task"].split('-')[1]
-        assert task in list(task_description.keys()), "The task-{} does not exist in the task_description dictionary!"
-        assert task in list(events_col_description.keys()), ("The task-{} does not exist in the events_col_description"
-                                                             " dictionary!")
-        # Combine the task description and the metadata for the column:
-        json_sidecar = {"task": task_description[task], **events_col_description[task]}
-        # Create the json sidecar file:
-        sidecar_file = Path(f["file_path"], f["fname"].split('.')[0] + ".json")
-        if os.path.isfile(sidecar_file) and not overwrite:
-            if verbose:
-                print("=" * 40)
-                print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                      .format(sidecar_file))
-        else:
-            if verbose:
-                print("=" * 40)
-                print("Saving {}".format(sidecar_file))
-            with open(sidecar_file, 'w') as fl:
-                json.dump(json_sidecar, fl, indent=2)
-
-    return beh_events_tsvs
 
 
 def create_participants_tsv(bids_root, beh_events_tsvs, verbose=True, overwrite=False):
