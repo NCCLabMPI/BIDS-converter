@@ -5,20 +5,45 @@ import pandas as pd
 import numpy as np
 
 
-def walk_bids_root(root_dir, extensions=None):
+def walk_bids_root(root_dir, data_type="beh", extension=None):
     """
-    This function loops through a nested bids directory and returns every single file within it alongside its actual
-    directory. For each file, it parses each relevant BIDS fields to generate sidecars json files
-    :param root_dir:
-    :param extensions:
-    :return:
+    Traverse a nested BIDS directory and return all relevant files with their metadata.
+
+    This function navigates through the specified BIDS (Brain Imaging Data Structure) directory, identifying files with
+    specified extensions (defaulting to .tsv) in directories containing the specified data type (default is 'beh').
+    It extracts relevant BIDS fields from each filename to facilitate the generation of sidecar JSON files.
+
+    Args:
+        root_dir (str): The root directory of the BIDS dataset to traverse.
+        data_type (str, optional): The data type directory to search within (default is "beh").
+        extension (str): File extensions to include (default is [".tsv"]).
+
+    Returns:
+        list: A list of dictionaries, each containing information about a relevant file, including its path, filename,
+        and BIDS fields (subject, session, run, task).
+
+    Example usage:
+        files_infos = walk_bids_root('/path/to/bids_dataset')
+
+    Example output:
+        [
+            {
+                "file_path": "/path/to/bids_dataset/sub-01/ses-01/beh",
+                "fname": "sub-01_ses-01_run-01_task-test_events.tsv",
+                "subject": "sub-01",
+                "session": "ses-01",
+                "run": "run-01",
+                "task": "task-test"
+            },
+            ...
+        ]
     """
-    if extensions is None:
-        extensions = [".tsv"]
+    if extension is None:
+        extension = ["tsv"]
     files_infos = []
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
-            if 'events' in filename and 'beh' in dirpath:
+            if 'events' in filename and data_type in dirpath and filename.endswith(extension):
                 # Extract details from the filename
                 parts = filename.split('_')
                 # Get all the parts of that file:
@@ -35,17 +60,35 @@ def walk_bids_root(root_dir, extensions=None):
     return files_infos
 
 
-def create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_description,
+def create_beh_events_sidecar(beh_events_tsvs, task_description: dict, events_col_description: dict,
                               verbose=True, overwrite=False):
     """
-    This function creates side car files for the behavioral events tsv files according to the BIDS conventions.
-    :param beh_events_tsvs: (list of path) List of all events files found within the bids directory
-    :param task_description: (dict) contains the description of each task found within this data set
-    :param events_col_description: (dict) contains the metadata for each column in the log files associated with each
-    task in this data set
-    :param verbose: (boolean)
-    :param overwrite:
-    :return: beh_events_tsvs: the list
+    Create JSON sidecar files for behavioral events TSV files following BIDS conventions.
+
+    This function generates sidecar JSON files for each behavioral events TSV file, incorporating task descriptions and
+    column metadata as specified in the BIDS (Brain Imaging Data Structure) standards.
+
+    Args:
+        beh_events_tsvs (list of dict): List of dictionaries, each containing information about an events file,
+        including "task", "file_path", and "fname".
+        task_description (dict): A dictionary containing descriptions for each task found within this dataset.
+        events_col_description (dict): A dictionary containing metadata for each column in the log files associated
+        with each task in this dataset.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite existing sidecar JSON files if they exist. Default is False.
+
+    Returns:
+        list: The original list of behavioral events TSV file information.
+
+    Notes:
+        - The function ensures that each task described in the TSV files is present in the task_description and
+        events_col_description dictionaries.
+        - If the sidecar file already exists and overwrite is set to False, a warning message will be printed
+        (if verbose is True).
+        - The JSON sidecar files include task descriptions and metadata for each column.
+
+    Example usage:
+        create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_description)
     """
     # Loop through each file to save the corresponding json sidecar:
     for f in beh_events_tsvs:
@@ -75,12 +118,31 @@ def create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_desc
 
 def create_participants_tsv(bids_root, beh_events_tsvs, verbose=True, overwrite=False):
     """
-    This files creates the participants tsv at the root of the bids directory
-    :param bids_root:
-    :param beh_events_tsvs:
-    :param verbose:
-    :param overwrite:
-    :return:
+    Create a participants.tsv file at the root of the BIDS directory.
+
+    This function generates a participants.tsv file, listing all subjects found in the behavioral events TSV files.
+    It initializes columns for participant ID, age, and sex, with age and sex set to NaN.
+
+    Args:
+        bids_root (str): The root directory of the BIDS dataset.
+        beh_events_tsvs (list): A list of dictionaries containing behavioral events information, each with a "subject"
+        key.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite the existing participants.tsv file if it exists. Default is
+        False.
+
+    Returns:
+        pandas.DataFrame: The created participants.tsv as a pandas DataFrame.
+
+    Notes:
+        - The function extracts unique subject IDs from the behavioral events TSV files.
+        - If the file already exists and overwrite is set to False, a warning message will be printed (if verbose is
+        True).
+        - The age and sex columns are initialized with NaN values, and the user should update these fields with actual
+        data.
+
+    Example usage:
+        create_participants_tsv('/path/to/bids_dataset', beh_events_tsvs)
     """
     if verbose:
         print("=" * 40)
@@ -111,12 +173,30 @@ def create_participants_tsv(bids_root, beh_events_tsvs, verbose=True, overwrite=
 
 def create_participants_json(bids_root, participants_tsv, verbose=True, overwrite=False):
     """
-    This file creates the participants json based on the participants tsv file
-    :param bids_root:
-    :param participants_tsv:
-    :param verbose:
-    :param overwrite:
-    :return:
+    Create a participants.json file based on the columns present in the participants.tsv file.
+
+    This function generates a participants.json file with descriptions for each column in the participants.tsv file,
+    following BIDS (Brain Imaging Data Structure) standards. The file is saved in the specified BIDS root directory.
+
+    Args:
+        bids_root (str): The root directory of the BIDS dataset.
+        participants_tsv (pandas.DataFrame): The participants.tsv file loaded as a pandas DataFrame.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite the existing participants.json file if it exists. Default is
+        False.
+
+    Returns:
+        None
+
+    Notes:
+        - The function provides predefined descriptions for the "age" and "sex" columns.
+        - For any additional columns in the participants.tsv, the function adds a placeholder description, which the
+        user should manually update.
+        - If the file already exists and overwrite is set to False, a warning message will be printed (if verbose is
+        True).
+
+    Example usage:
+        create_participants_json('/path/to/bids_dataset', participants_tsv)
     """
     # Prepare the participants json:
     participants_json = {}
@@ -176,12 +256,29 @@ def create_participants_json(bids_root, participants_tsv, verbose=True, overwrit
 
 def create_dataset_desc_json(bids_root, verbose=True, overwrite=False):
     """
-    This function creates the template dataset_description.json from the bids conventions and saves it to file.
-    It does not populate this file however
-    :param bids_root:
-    :param verbose:
-    :param overwrite:
-    :return:
+    Create a template dataset_description.json file in accordance with BIDS conventions.
+
+    This function generates a dataset_description.json file with a predefined structure based on BIDS (Brain Imaging
+    Data Structure) standards. The file is saved in the specified BIDS root directory. The function does not populate
+    the fields, leaving them for the user to fill in.
+
+    Args:
+        bids_root (str): The root directory of the BIDS dataset.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite the existing dataset_description.json file if it exists.
+        Default is False.
+
+    Returns:
+        None
+
+    Notes:
+        - The generated JSON file will include placeholders for various metadata fields, such as the dataset name,
+        authors, funding sources, etc.
+        - If the file already exists and overwrite is set to False, a warning message will be printed
+        (if verbose is True).
+
+    Example usage:
+        create_dataset_desc_json('/path/to/bids_dataset')
     """
     # Create file name:
     json_file_name = Path(bids_root, 'dataset_description.json')
