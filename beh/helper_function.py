@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-import os as os
+import os
 import pandas as pd
 import numpy as np
 
@@ -16,7 +16,7 @@ def walk_bids_root(root_dir, data_type="beh", extension=None):
     Args:
         root_dir (str): The root directory of the BIDS dataset to traverse.
         data_type (str, optional): The data type directory to search within (default is "beh").
-        extension (str): File extensions to include (default is [".tsv"]).
+        extension (str): File extensions to include (default is ".tsv").
 
     Returns:
         list: A list of dictionaries, each containing information about a relevant file, including its path, filename,
@@ -24,29 +24,14 @@ def walk_bids_root(root_dir, data_type="beh", extension=None):
 
     Example usage:
         files_infos = walk_bids_root('/path/to/bids_dataset')
-
-    Example output:
-        [
-            {
-                "file_path": "/path/to/bids_dataset/sub-01/ses-01/beh",
-                "fname": "sub-01_ses-01_run-01_task-test_events.tsv",
-                "subject": "sub-01",
-                "session": "ses-01",
-                "run": "run-01",
-                "task": "task-test"
-            },
-            ...
-        ]
     """
     if extension is None:
-        extension = ["tsv"]
+        extension = ".tsv"
     files_infos = []
-    for dirpath, dirnames, filenames in os.walk(root_dir):
+    for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
             if 'events' in filename and data_type in dirpath and filename.endswith(extension):
-                # Extract details from the filename
                 parts = filename.split('_')
-                # Get all the parts of that file:
                 bids_path = {
                     "file_path": dirpath,
                     "fname": filename,
@@ -56,12 +41,10 @@ def walk_bids_root(root_dir, data_type="beh", extension=None):
                     "task": parts[3]
                 }
                 files_infos.append(bids_path)
-
     return files_infos
 
 
-def create_beh_events_sidecar(beh_events_tsvs, task_description: dict, events_col_description: dict,
-                              verbose=True, overwrite=False):
+def create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_description, verbose=True, overwrite=False):
     """
     Create JSON sidecar files for behavioral events TSV files following BIDS conventions.
 
@@ -80,36 +63,26 @@ def create_beh_events_sidecar(beh_events_tsvs, task_description: dict, events_co
     Returns:
         list: The original list of behavioral events TSV file information.
 
-    Notes:
-        - The function ensures that each task described in the TSV files is present in the task_description and
-        events_col_description dictionaries.
-        - If the sidecar file already exists and overwrite is set to False, a warning message will be printed
-        (if verbose is True).
-        - The JSON sidecar files include task descriptions and metadata for each column.
-
     Example usage:
         create_beh_events_sidecar(beh_events_tsvs, task_description, events_col_description)
     """
-    # Loop through each file to save the corresponding json sidecar:
     for f in beh_events_tsvs:
-        # Get the task of the current file
         task = f["task"].split('-')[1]
-        assert task in list(task_description.keys()), "The task-{} does not exist in the task_description dictionary!"
-        assert task in list(events_col_description.keys()), ("The task-{} does not exist in the events_col_description"
-                                                             " dictionary!")
-        # Combine the task description and the metadata for the column:
+        assert task in task_description, f"The task-{task} does not exist in the task_description dictionary!"
+        assert task in events_col_description, f"The task-{task} does not exist in the events_col_description dictionary!"
+
         json_sidecar = {"task": task_description[task], **events_col_description[task]}
-        # Create the json sidecar file:
         sidecar_file = Path(f["file_path"], f["fname"].split('.')[0] + ".json")
+
         if os.path.isfile(sidecar_file) and not overwrite:
             if verbose:
                 print("=" * 40)
-                print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                      .format(sidecar_file))
+                print(
+                    f"WARNING: The file {sidecar_file} already exists. If you want to overwrite it, set overwrite to true!")
         else:
             if verbose:
                 print("=" * 40)
-                print("Saving {}".format(sidecar_file))
+                print(f"Saving {sidecar_file}")
             with open(sidecar_file, 'w') as fl:
                 json.dump(json_sidecar, fl, indent=2)
 
@@ -134,40 +107,33 @@ def create_participants_tsv(bids_root, beh_events_tsvs, verbose=True, overwrite=
     Returns:
         pandas.DataFrame: The created participants.tsv as a pandas DataFrame.
 
-    Notes:
-        - The function extracts unique subject IDs from the behavioral events TSV files.
-        - If the file already exists and overwrite is set to False, a warning message will be printed (if verbose is
-        True).
-        - The age and sex columns are initialized with NaN values, and the user should update these fields with actual
-        data.
-
     Example usage:
         create_participants_tsv('/path/to/bids_dataset', beh_events_tsvs)
     """
     if verbose:
         print("=" * 40)
-        print("Create the participants tsv file")
-    # Extract all subjects found within the data set:
-    subjects_list = list(set([fl["subject"] for fl in beh_events_tsvs]))
+        print("Create the participants.tsv file")
 
-    # Create pandas data frame:
+    subjects_list = list(set(fl["subject"] for fl in beh_events_tsvs))
+
     participants_tsv = pd.DataFrame({
         "participant_id": subjects_list,
         "age": [np.nan] * len(subjects_list),
         "sex": [np.nan] * len(subjects_list)
     })
     participants_tsv_file = Path(bids_root, "participants.tsv")
-    # Save to file:
+
     if os.path.isfile(participants_tsv_file) and not overwrite:
         if verbose:
             print("=" * 40)
-            print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                  .format(participants_tsv_file))
+            print(
+                f"WARNING: The file {participants_tsv_file} already exists. If you want to overwrite it, set overwrite to true!")
     else:
         if verbose:
             print("=" * 40)
-            print("Saving {}".format(participants_tsv_file))
-        participants_tsv.to_csv(participants_tsv_file, sep="\t")
+            print(f"Saving {participants_tsv_file}")
+        participants_tsv.to_csv(participants_tsv_file, sep="\t", index=False)
+
     return participants_tsv
 
 
@@ -188,24 +154,14 @@ def create_participants_json(bids_root, participants_tsv, verbose=True, overwrit
     Returns:
         None
 
-    Notes:
-        - The function provides predefined descriptions for the "age" and "sex" columns.
-        - For any additional columns in the participants.tsv, the function adds a placeholder description, which the
-        user should manually update.
-        - If the file already exists and overwrite is set to False, a warning message will be printed (if verbose is
-        True).
-
     Example usage:
         create_participants_json('/path/to/bids_dataset', participants_tsv)
     """
-    # Prepare the participants json:
     participants_json = {}
     json_file_name = Path(bids_root, "participants.json")
 
-    # Extract the column:
     cols = list(participants_tsv.columns)
 
-    # Loop through each of the column
     for col in cols:
         if col == "age":
             col_dict = {
@@ -214,42 +170,39 @@ def create_participants_json(bids_root, participants_tsv, verbose=True, overwrit
                     "Units": "years"
                 }
             }
-            participants_json.update(col_dict)
         elif col == "sex":
             col_dict = {
                 "sex": {
-                    "Description": "sex of the participant as reported by the participant",
+                    "Description": "Sex of the participant as reported by the participant",
                     "Levels": {
                         "m": "male",
                         "f": "female"
                     }
                 }
             }
-            participants_json.update(col_dict)
         else:
-            print("WARNING: You have added extra column in your participants.tsv file. ")
-            print("Make sure to describe the added column under:")
-            print(json_file_name)
+            if verbose:
+                print(f"WARNING: You have added extra column {col} in your participants.tsv file.")
+                print("Make sure to describe the added column under:")
+                print(json_file_name)
             col_dict = {
                 col: {
                     "Description": "",
-                    "Levels": {
-                    },
+                    "Levels": {},
                     "Units": ""
                 }
             }
-            participants_json.update(col_dict)
-    # Save the dict:
-    # Save to file:
+        participants_json.update(col_dict)
+
     if os.path.isfile(json_file_name) and not overwrite:
         if verbose:
             print("=" * 40)
-            print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                  .format(json_file_name))
+            print(
+                f"WARNING: The file {json_file_name} already exists. If you want to overwrite it, set overwrite to true!")
     else:
         if verbose:
             print("=" * 40)
-            print("Saving {}".format(json_file_name))
+            print(f"Saving {json_file_name}")
         with open(json_file_name, 'w') as fl:
             json.dump(participants_json, fl, indent=2)
 
@@ -271,19 +224,11 @@ def create_dataset_desc_json(bids_root, verbose=True, overwrite=False):
     Returns:
         None
 
-    Notes:
-        - The generated JSON file will include placeholders for various metadata fields, such as the dataset name,
-        authors, funding sources, etc.
-        - If the file already exists and overwrite is set to False, a warning message will be printed
-        (if verbose is True).
-
     Example usage:
         create_dataset_desc_json('/path/to/bids_dataset')
     """
-    # Create file name:
     json_file_name = Path(bids_root, 'dataset_description.json')
 
-    # Pre-allocate dictionary:
     dataset_desc = {
         "Name": "",
         "BIDSVersion": "1.9.0",
@@ -316,45 +261,91 @@ def create_dataset_desc_json(bids_root, verbose=True, overwrite=False):
         ]
     }
 
-    # Save to file:
     if os.path.isfile(json_file_name) and not overwrite:
         if verbose:
             print("=" * 40)
-            print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                  .format(json_file_name))
+            print(
+                f"WARNING: The file {json_file_name} already exists. If you want to overwrite it, set overwrite to true!")
     else:
         if verbose:
             print("=" * 40)
-            print("Saving {}".format(json_file_name))
+            print(f"Saving {json_file_name}")
         with open(json_file_name, 'w') as fl:
             json.dump(dataset_desc, fl, indent=2)
 
 
 def create_readme(bids_root, verbose=True, overwrite=False):
     """
-    This function creates the template README.md from the bids conventions and saves it to file.
-    It does not populate this file however!
-    :param bids_root:
-    :param verbose:
-    :param overwrite:
-    :return:
+    Create a template README.md file in accordance with BIDS conventions.
+
+    This function generates a README.md file with a template structure based on BIDS (Brain Imaging Data Structure) standards.
+    The file is saved in the specified BIDS root directory. The function does not populate the content, leaving it for the user to fill in.
+
+    Args:
+        bids_root (str): The root directory of the BIDS dataset.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite the existing README.md file if it exists. Default is False.
+
+    Returns:
+        None
+
+    Example usage:
+        create_readme('/path/to/bids_dataset')
     """
     readme_file = Path(bids_root, "README.md")
 
-    # Write a template readme:
-    markdown_content = "#Write an extensive description of your experiment!\n\n"
-    markdown_content += "Here are a few nice readmes examples: \n\n"
-    markdown_content += "- https://github.com/bids-standard/bids-starter-kit/blob/main/templates/README.MD"
+    markdown_content = (
+        "# Write an extensive description of your experiment!\n\n"
+        "Here are a few nice README examples:\n\n"
+        "- https://github.com/bids-standard/bids-starter-kit/blob/main/templates/README.MD"
+    )
 
-    # Save to file:
     if os.path.isfile(readme_file) and not overwrite:
         if verbose:
             print("=" * 40)
-            print("WARNING: The file {} already exists. If you want to overwrite it, set overwrite to true!"
-                  .format(readme_file))
+            print(
+                f"WARNING: The file {readme_file} already exists. If you want to overwrite it, set overwrite to true!")
     else:
         if verbose:
             print("=" * 40)
-            print("Saving {}".format(readme_file))
+            print(f"Saving {readme_file}")
         with open(readme_file, 'w') as fl:
             fl.write(markdown_content)
+
+
+def beh_bids_metadata(bids_root, task_descriptions, logs_descriptions, verbose=True, overwrite=False):
+    """
+    Generate BIDS-compatible metadata for behavioral data in a BIDS directory structure.
+
+    This function automates the creation of several BIDS-required metadata files, including:
+    - Event files sidecar JSONs
+    - Participants TSV and JSON files
+    - Dataset description JSON
+    - README file
+
+    Args:
+        bids_root (str): The root directory of the BIDS dataset.
+        task_descriptions (dict): A dictionary containing descriptions for each task, used to create event sidecars.
+        logs_descriptions (dict): A dictionary containing descriptions for log files, also used for event sidecars.
+        verbose (bool, optional): If True, print progress and status messages. Default is True.
+        overwrite (bool, optional): If True, overwrite existing files. Default is False.
+
+    Returns:
+        None
+
+    Example usage:
+        beh_bids_metadata('/path/to/bids_dataset', task_descriptions, logs_descriptions)
+    """
+    evts_files = walk_bids_root(bids_root)
+
+    create_beh_events_sidecar(evts_files, task_descriptions, logs_descriptions, verbose=verbose, overwrite=overwrite)
+
+    participants_tsv = create_participants_tsv(bids_root, evts_files, verbose=verbose, overwrite=overwrite)
+
+    create_participants_json(bids_root, participants_tsv, verbose=verbose, overwrite=overwrite)
+
+    create_dataset_desc_json(bids_root, verbose=verbose, overwrite=overwrite)
+
+    create_readme(bids_root, verbose=verbose, overwrite=overwrite)
+
+    print("Done!")
