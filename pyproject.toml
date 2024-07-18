@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bids-converter"
+version = "0.1.0"
+description = "bids-converter"
+readme = "README.md"
+authors = [
+    { name = "Alex Lepauvre", email = "alex.lepauvre@ae.mpg.de" },
+    { name = "Qian Chu", email = "qian.chu@ae.mpg.de"},
+]
+dependencies = [
+    "mne_bids>=0.15.0",
+]
