@@ -1,4 +1,3 @@
-
 logs_column_descriptions = {
     "prp": {
         "sub_id": {
